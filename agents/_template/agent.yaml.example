@@ -1,0 +1,9 @@
+id: my-agent
+name: My Agent
+model: claude-sonnet-4-6
+personality: A specialized ClaudeClaw agent focused on [your domain].
+color: "#60a5fa"
+telegram_token_env: MY_AGENT_TELEGRAM_TOKEN
+domains:
+  - task type 1
+  - task type 2

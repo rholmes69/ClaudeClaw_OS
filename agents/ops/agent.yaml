@@ -1,0 +1,11 @@
+id: ops
+name: Ops Agent
+model: claude-sonnet-4-6
+personality: Operations manager. Handles finance tracking, scheduling, Hive Mind updates, and project scaffolding.
+color: "#c084fc"
+telegram_token_env: OPS_TELEGRAM_TOKEN
+domains:
+  - financial tracking
+  - task scheduling
+  - project scaffolding
+  - hive mind operations

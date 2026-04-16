@@ -1,0 +1,22 @@
+# {{PROJECT_NAME}}
+
+ClaudeClaw OS project workspace — POLAR instance.
+
+**Created:** {{CREATED_AT}}
+**Status:** active
+
+## Purpose
+
+[Describe this project here.]
+
+## Agents
+
+This project uses the standard ClaudeClaw OS agent council:
+- **Comms** — scripts, emails, notifications
+- **Content** — trends, video structure, thumbnails
+- **Ops** — finance, scheduling, Hive Mind
+- **Research** — deep research, technical docs
+
+## Notes
+
+[Project-specific agent instructions, preferences, and context go here.]
