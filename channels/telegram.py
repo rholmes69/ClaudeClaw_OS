@@ -13,6 +13,7 @@ Security layers (Pack 5):
 
 import logging
 import os
+import sys
 
 from dotenv import load_dotenv
 from telegram import Update
@@ -309,7 +310,42 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 # ------------------------------------------------------------------
 
 def run_bot() -> None:
-    """Start the Telegram bot (blocking)."""
+    """Start the Telegram bot (blocking).
+
+    Uses a PID lock file to prevent duplicate instances from conflicting
+    with the Telegram getUpdates long-poll endpoint.
+    """
+    import atexit
+
+    pid_path = os.path.join(os.path.dirname(__file__), ".telegram_bot.pid")
+
+    # Check if another instance is already running
+    if os.path.exists(pid_path):
+        try:
+            with open(pid_path) as f:
+                old_pid = int(f.read().strip())
+            # Verify the PID is actually alive
+            os.kill(old_pid, 0)
+            logger.error(
+                f"Another bot instance is already running (PID {old_pid}). "
+                "Stop it first or delete channels/.telegram_bot.pid if it is stale."
+            )
+            sys.exit(1)
+        except (OSError, ValueError):
+            # Stale PID file — previous process is gone, safe to overwrite
+            logger.warning("Removing stale PID file from previous run.")
+
+    with open(pid_path, "w") as f:
+        f.write(str(os.getpid()))
+
+    def _remove_pid():
+        try:
+            os.remove(pid_path)
+        except FileNotFoundError:
+            pass
+
+    atexit.register(_remove_pid)
+
     app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", cmd_start))

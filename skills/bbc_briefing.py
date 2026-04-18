@@ -49,6 +49,7 @@ def _run(cmd: str) -> str:
         r = subprocess.run(
             f"agent-browser {cmd}",
             shell=True, capture_output=True, text=True, timeout=_TIMEOUT,
+            encoding="utf-8", errors="replace",
         )
         return (r.stdout or "").strip()
     except subprocess.TimeoutExpired:

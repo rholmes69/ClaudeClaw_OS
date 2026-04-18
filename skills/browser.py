@@ -77,6 +77,8 @@ def execute_browser_tool(name: str, inputs: dict) -> str:
             capture_output=True,
             text=True,
             timeout=_TIMEOUT,
+            encoding="utf-8",
+            errors="replace",
         )
         output = (result.stdout or "").strip()
         err    = (result.stderr or "").strip()
