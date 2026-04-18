@@ -43,12 +43,15 @@ ROUTING_TOOL = {
                 "type": "string",
                 "enum": ["comms", "content", "ops", "research", "finance", "cicd"],
                 "description": (
-                    "comms: scriptwriting, emails, notifications. "
-                    "content: trends, thumbnails, video structure. "
-                    "ops: scheduling, hive mind updates, project scaffolding. "
-                    "research: deep web searches, technical docs. "
-                    "finance: invoices, expenses, payroll, financial summaries. "
-                    "cicd: git push, pull, clone, commit, branch, pull requests, github repos."
+                    "comms: scriptwriting, emails, Telegram notifications, social media copy. "
+                    "content: trends, thumbnails, video outlines, content planning. "
+                    "ops: scheduling, hive mind updates, project scaffolding, system status. "
+                    "research: deep web searches, technical documentation, competitive analysis. "
+                    "finance: invoices, expenses, payroll, financial tracking, AP queries. "
+                    "cicd: ANYTHING involving git or GitHub — push, pull, clone, commit, "
+                    "branches, pull requests, merging, repo management, deploying code, "
+                    "version control. If the user mentions GitHub, git, pushing, pulling, "
+                    "or committing code, always choose cicd."
                 ),
             },
             "task": {
@@ -121,18 +124,23 @@ class MainAgent:
             query=instruction, agent_id="main_agent"
         )
 
-        # Build system prompt
-        system = self._build_system_prompt(hive_context)
-
-        # Ask Claude to classify and route
-        routing = self._classify(instruction, system)
-        if routing is None:
-            self.hive.log("main_agent", task=instruction, error="Routing classification failed")
-            return "I was unable to determine how to handle that request. Please try rephrasing."
-
-        agent_name = routing["agent"]
-        task_description = routing["task"]
-        context_summary = routing.get("context_summary", "")
+        # Deterministic keyword pre-classifier — bypasses LLM routing for
+        # unambiguous domain keywords (e.g. git push → always cicd).
+        keyword_agent = self._keyword_route(instruction)
+        if keyword_agent:
+            agent_name      = keyword_agent
+            task_description = instruction
+            context_summary  = ""
+        else:
+            # Ask Claude to classify and route
+            system  = self._build_system_prompt(hive_context)
+            routing = self._classify(instruction, system)
+            if routing is None:
+                self.hive.log("main_agent", task=instruction, error="Routing classification failed")
+                return "I was unable to determine how to handle that request. Please try rephrasing."
+            agent_name      = routing["agent"]
+            task_description = routing["task"]
+            context_summary  = routing.get("context_summary", "")
 
         # Log routing decision
         self.hive.log("main_agent", task=f"Routing to {agent_name}: {task_description}")
@@ -190,6 +198,26 @@ class MainAgent:
 
     def _is_allowed(self, chat_id: str) -> bool:
         return chat_id.strip() in ALLOWED_CHAT_IDS
+
+    def _keyword_route(self, instruction: str) -> Optional[str]:
+        """
+        Deterministic keyword pre-classifier. Returns an agent name if the
+        instruction contains unambiguous domain keywords, bypassing the LLM
+        routing call entirely. Returns None to fall through to LLM routing.
+        """
+        text = instruction.lower()
+        _CICD_KEYWORDS = (
+            "git push", "git pull", "git clone", "git commit", "git branch",
+            "git checkout", "git merge", "git status", "git log",
+            "push to github", "pull from github", "push to origin",
+            "push the latest", "push my code", "push changes",
+            "pull request", "open a pr", "create a pr", "merge branch",
+            "github repo", "github repository", "clone the repo", "clone repo",
+            "commit and push", "stage and commit", "push origin",
+        )
+        if any(kw in text for kw in _CICD_KEYWORDS):
+            return "cicd"
+        return None
 
     def _build_system_prompt(self, hive_context: str) -> str:
         with open("prompts/main_agent_v1.md", "r") as f:

@@ -243,3 +243,9 @@ GET /api/agents/legal/versions/active
 - Maximum **20 agents** per ClaudeClaw OS instance.
 - Agent IDs must be unique and match `^[a-z][a-z0-9_-]{0,29}$`.
 - Each agent requires its own Telegram bot token and environment variable.
+
+
+## AVATAR PROMPT Generations
+Photorealistic portrait of a sharp, professional AI financial specialist named Angela. Cool teal and silver palette. Polished, authoritative expression. Subtle ledger or data grid pattern in background. Precise and trustworthy energy. Executive lighting. Square crop. add agent name: Angela -Finance Agent
+
+Rewrite this prompt for new agent, Carl, the CI/CD Agent. Here is the reference prompt: "Photorealistic portrait of a sharp, professional AI financial specialist named Angela. Cool teal and silver palette. Polished, authoritative expression. Subtle ledger or data grid pattern in background. Precise and trustworthy energy. Executive lighting. Square crop. add agent name: Angela -Finance Agent"

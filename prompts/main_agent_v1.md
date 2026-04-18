@@ -31,8 +31,13 @@ Route based on the primary nature of the request:
 | Scheduling, project setup, Hive Mind ops, system status | ops |
 | Deep research, technical docs, competitive analysis | research |
 | Invoices, expenses, payroll, financial tracking, AP queries | finance |
+| Git push, pull, clone, commit, branches, pull requests, GitHub repos, deploying code, version control | cicd |
 
 When ambiguous, choose the agent with the closest domain match. Do not split tasks across agents in a single call.
+
+**Critical routing rules:**
+- Any request involving git, GitHub, pushing code, pulling code, commits, branches, or pull requests → always route to `cicd`. Never route these to `ops`.
+- `@agent_id: task` syntax is a direct delegation — route immediately to that agent without re-classifying.
 
 **Important:** Always pass the user's full original request as the `task` — do not paraphrase or shorten it. The specialist needs the full context to give a complete answer.
 
@@ -57,4 +62,4 @@ If a specialist agent fails:
 Never surface raw stack traces to the user.
 
 ---
-_Version: 1.0 | Changed: Initial release_
+_Version: 1.1 | Changed: Added cicd agent to routing table; added critical routing rules for git/GitHub tasks_
