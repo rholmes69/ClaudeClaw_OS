@@ -233,4 +233,147 @@ def register_agent(
         claude_md_path.write_text(content, encoding="utf-8")
 
     logger.info(f"[Orchestrator] Registered agent '{agent_id}' at {yaml_path}")
+
+    # Snapshot initial version in the Hive Mind
+    try:
+        from hive_mind.db import HiveMindDB
+        hive = HiveMindDB()
+        hive.snapshot_agent_version(
+            agent_id=agent_id,
+            version="1.0.0",
+            model=model,
+            personality=personality,
+            domains=domains or [],
+            color=cfg.get("color"),
+            changelog="Initial version.",
+            bump_type="major",
+            created_by="system",
+        )
+    except Exception as e:
+        logger.warning(f"[Orchestrator] Could not snapshot version for '{agent_id}': {e}")
+
     return cfg
+
+
+def bump_agent_version(
+    agent_id: str,
+    bump_type: str = "minor",
+    changelog: Optional[str] = None,
+    created_by: str = "system",
+) -> str:
+    """
+    Read the current agent.yaml, compute the next semver, write a new version
+    snapshot to the Hive Mind, and persist the new version string back to
+    agent.yaml. Returns the new version string.
+
+    bump_type:
+        major — breaking change (personality overhaul, model swap)
+        minor — new domain or capability added
+        patch — typo fix, wording tweak
+    """
+    cfg = get_agent_config(agent_id)
+    if not cfg:
+        raise ValueError(f"Agent '{agent_id}' not found.")
+
+    from hive_mind.db import HiveMindDB
+    hive = HiveMindDB()
+
+    active = hive.get_active_version(agent_id)
+    current_ver = active["version"] if active else cfg.get("version", "1.0.0")
+
+    # Parse and bump semver
+    try:
+        parts = [int(x) for x in current_ver.split(".")]
+        if len(parts) != 3:
+            raise ValueError
+    except ValueError:
+        parts = [1, 0, 0]
+
+    major, minor, patch = parts
+    if bump_type == "major":
+        major += 1; minor = 0; patch = 0
+    elif bump_type == "minor":
+        minor += 1; patch = 0
+    else:
+        patch += 1
+
+    new_version = f"{major}.{minor}.{patch}"
+
+    hive.snapshot_agent_version(
+        agent_id=agent_id,
+        version=new_version,
+        model=cfg.get("model", "claude-sonnet-4-6"),
+        personality=cfg.get("personality", ""),
+        domains=cfg.get("domains", []),
+        color=cfg.get("color"),
+        changelog=changelog,
+        bump_type=bump_type,
+        created_by=created_by,
+    )
+
+    # Write new version back into agent.yaml
+    yaml_path = Path(cfg["config_path"])
+    text = yaml_path.read_text(encoding="utf-8")
+    import re as _re
+    if _re.search(r'^version:', text, _re.MULTILINE):
+        text = _re.sub(r'^version:.*$', f'version: {new_version}', text, flags=_re.MULTILINE)
+    else:
+        text = f"version: {new_version}\n" + text
+    yaml_path.write_text(text, encoding="utf-8")
+
+    logger.info(f"[Orchestrator] Bumped '{agent_id}' {current_ver} → {new_version} ({bump_type})")
+    return new_version
+
+
+def rollback_agent_version(agent_id: str, version: str) -> dict:
+    """
+    Restore an agent's config from a past version snapshot.
+    Rewrites agent.yaml with the snapshot values and marks that version active.
+    Returns the restored config dict.
+    """
+    from hive_mind.db import HiveMindDB
+    hive = HiveMindDB()
+
+    snap = hive.get_version(agent_id, version)
+    if not snap:
+        raise ValueError(f"Version '{version}' not found for agent '{agent_id}'.")
+
+    cfg = get_agent_config(agent_id)
+    if not cfg:
+        raise ValueError(f"Agent '{agent_id}' not found.")
+
+    import json as _json
+    domains = _json.loads(snap["domains"]) if isinstance(snap["domains"], str) else snap["domains"]
+
+    yaml_path = Path(cfg["config_path"])
+    lines = [
+        f"id: {agent_id}\n",
+        f"name: {cfg.get('name', agent_id)}\n",
+        f"version: {version}\n",
+        f"model: {snap['model']}\n",
+    ]
+    personality = snap["personality"]
+    if any(c in personality for c in [':', '#', '[', ']', '{', '}']):
+        personality = f'"{personality}"'
+    lines.append(f"personality: {personality}\n")
+    if snap.get("color"):
+        lines.append(f'color: "{snap["color"]}"\n')
+    token_env = cfg.get("telegram_token_env", "")
+    lines.append(f"telegram_token_env: {token_env}\n")
+    if domains:
+        lines.append("domains:\n")
+        for d in domains:
+            lines.append(f"  - {d}\n")
+    yaml_path.write_text("".join(lines), encoding="utf-8")
+
+    hive.activate_version(agent_id, version)
+    logger.info(f"[Orchestrator] Rolled back '{agent_id}' to {version}")
+
+    return {
+        "id": agent_id,
+        "version": version,
+        "model": snap["model"],
+        "personality": snap["personality"],
+        "domains": domains,
+        "color": snap.get("color"),
+    }

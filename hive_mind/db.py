@@ -697,6 +697,96 @@ class HiveMindDB:
             )
             return cur.rowcount
 
+    # ──────────────────────────────────────────────────────────────
+    # Agent Versioning
+    # ──────────────────────────────────────────────────────────────
+
+    def snapshot_agent_version(
+        self,
+        agent_id: str,
+        version: str,
+        model: str,
+        personality: str,
+        domains: list,
+        color: Optional[str] = None,
+        changelog: Optional[str] = None,
+        bump_type: str = "minor",
+        created_by: str = "system",
+    ) -> str:
+        """Insert a version snapshot and mark it as the active version."""
+        ver_id = str(uuid.uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+        with _connect() as conn:
+            # Deactivate previous active version for this agent
+            conn.execute(
+                "UPDATE agent_versions SET is_active=0 WHERE agent_id=?", (agent_id,)
+            )
+            conn.execute(
+                "INSERT INTO agent_versions(id,agent_id,version,model,personality,"
+                "domains,color,changelog,bump_type,is_active,created_by,created_at)"
+                " VALUES(?,?,?,?,?,?,?,?,?,1,?,?)",
+                (
+                    ver_id, agent_id, version, model, personality,
+                    json.dumps(domains or []), color, changelog, bump_type,
+                    created_by, now,
+                ),
+            )
+        return ver_id
+
+    def get_active_version(self, agent_id: str) -> Optional[dict]:
+        """Return the currently active version snapshot for an agent."""
+        with _connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM agent_versions WHERE agent_id=? AND is_active=1",
+                (agent_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def list_agent_versions(self, agent_id: str) -> list[dict]:
+        """Return all version snapshots for an agent, newest first."""
+        with _connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM agent_versions WHERE agent_id=?"
+                " ORDER BY created_at DESC",
+                (agent_id,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_version(self, agent_id: str, version: str) -> Optional[dict]:
+        """Return a specific version snapshot by semver string."""
+        with _connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM agent_versions WHERE agent_id=? AND version=?",
+                (agent_id, version),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def activate_version(self, agent_id: str, version: str) -> bool:
+        """Set a specific version as active; return False if version not found."""
+        with _connect() as conn:
+            row = conn.execute(
+                "SELECT id FROM agent_versions WHERE agent_id=? AND version=?",
+                (agent_id, version),
+            ).fetchone()
+            if not row:
+                return False
+            conn.execute(
+                "UPDATE agent_versions SET is_active=0 WHERE agent_id=?", (agent_id,)
+            )
+            conn.execute(
+                "UPDATE agent_versions SET is_active=1 WHERE agent_id=? AND version=?",
+                (agent_id, version),
+            )
+        return True
+
+    def get_all_active_versions(self) -> list[dict]:
+        """Return the active version snapshot for every agent."""
+        with _connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM agent_versions WHERE is_active=1 ORDER BY agent_id"
+            ).fetchall()
+        return [dict(r) for r in rows]
+
     def get_logs(self, agent: Optional[str] = None, limit: int = 50) -> list[dict]:
         with _connect() as conn:
             if agent:

@@ -15,11 +15,12 @@ if TYPE_CHECKING:
     from agents.research_agent import ResearchAgent
 
 AGENT_MAP = {
-    "comms": ("agents.comms_agent", "CommsAgent"),
-    "content": ("agents.content_agent", "ContentAgent"),
-    "ops": ("agents.ops_agent", "OpsAgent"),
+    "comms":    ("agents.comms_agent",    "CommsAgent"),
+    "content":  ("agents.content_agent",  "ContentAgent"),
+    "ops":      ("agents.ops_agent",      "OpsAgent"),
     "research": ("agents.research_agent", "ResearchAgent"),
-    "finance": ("agents.finance_agent", "FinanceAgent"),
+    "finance":  ("agents.finance_agent",  "FinanceAgent"),
+    "cicd":     ("agents.cicd_agent",     "CICDAgent"),
 }
 
 

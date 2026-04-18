@@ -145,6 +145,7 @@ def main():
     print("─" * 40)
     print(f"  ID:          {agent_id}")
     print(f"  Name:        {name}")
+    print(f"  Version:     1.0.0")
     print(f"  Model:       {model}")
     print(f"  Personality: {personality[:60]}...")
     print(f"  Domains:     {', '.join(domains) or '(none)'}")
@@ -165,8 +166,9 @@ def main():
         model=model,
         domains=domains,
     )
-    print(f"  ✓ Created agents/{agent_id}/agent.yaml")
+    print(f"  ✓ Created agents/{agent_id}/agent.yaml  (v1.0.0)")
     print(f"  ✓ Created agents/{agent_id}/CLAUDE.md")
+    print(f"  ✓ Snapshotted version 1.0.0 in Hive Mind")
 
     if token:
         _append_to_env(env_var, token)

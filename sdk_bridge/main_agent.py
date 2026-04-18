@@ -41,13 +41,14 @@ ROUTING_TOOL = {
         "properties": {
             "agent": {
                 "type": "string",
-                "enum": ["comms", "content", "ops", "research", "finance"],
+                "enum": ["comms", "content", "ops", "research", "finance", "cicd"],
                 "description": (
                     "comms: scriptwriting, emails, notifications. "
                     "content: trends, thumbnails, video structure. "
                     "ops: scheduling, hive mind updates, project scaffolding. "
                     "research: deep web searches, technical docs. "
-                    "finance: invoices, expenses, payroll, financial summaries."
+                    "finance: invoices, expenses, payroll, financial summaries. "
+                    "cicd: git push, pull, clone, commit, branch, pull requests, github repos."
                 ),
             },
             "task": {

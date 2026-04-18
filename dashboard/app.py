@@ -217,6 +217,63 @@ def api_agents():
     return jsonify(agents)
 
 
+# ------------------------------------------------------------------
+# Agent Versioning
+# ------------------------------------------------------------------
+
+@app.route("/api/agents/<agent_id>/versions")
+def api_agent_versions(agent_id):
+    hive = HiveMindDB()
+    versions = hive.list_agent_versions(agent_id)
+    return jsonify(versions)
+
+
+@app.route("/api/agents/<agent_id>/versions/active")
+def api_agent_active_version(agent_id):
+    hive = HiveMindDB()
+    ver = hive.get_active_version(agent_id)
+    if not ver:
+        return jsonify({"error": "no version found"}), 404
+    return jsonify(ver)
+
+
+@app.route("/api/agents/<agent_id>/versions/bump", methods=["POST"])
+def api_agent_bump_version(agent_id):
+    from sdk_bridge.orchestrator import bump_agent_version
+    data      = request.get_json() or {}
+    bump_type = data.get("bump_type", "minor")
+    changelog = data.get("changelog", "")
+    if bump_type not in ("major", "minor", "patch"):
+        return jsonify({"error": "bump_type must be major, minor, or patch"}), 400
+    try:
+        new_ver = bump_agent_version(agent_id, bump_type=bump_type, changelog=changelog)
+        _push_event("version_bumped", {"agent_id": agent_id, "version": new_ver})
+        return jsonify({"agent_id": agent_id, "version": new_ver})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+
+
+@app.route("/api/agents/<agent_id>/versions/rollback", methods=["POST"])
+def api_agent_rollback(agent_id):
+    from sdk_bridge.orchestrator import rollback_agent_version
+    data    = request.get_json() or {}
+    version = data.get("version", "")
+    if not version:
+        return jsonify({"error": "version required"}), 400
+    try:
+        restored = rollback_agent_version(agent_id, version)
+        _push_event("version_rollback", {"agent_id": agent_id, "version": version})
+        return jsonify(restored)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+
+
+@app.route("/api/versions")
+def api_all_active_versions():
+    hive = HiveMindDB()
+    return jsonify(hive.get_all_active_versions())
+
+
 @app.route("/api/hive")
 def api_hive():
     hive  = HiveMindDB()

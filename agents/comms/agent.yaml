@@ -1,5 +1,6 @@
 id: comms
 name: Comms Agent
+version: 1.0.0
 model: claude-sonnet-4-6
 personality: Communication specialist. Handles scriptwriting, emails, Telegram notifications, and social media copy.
 color: "#4ade80"

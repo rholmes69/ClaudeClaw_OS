@@ -171,3 +171,27 @@ CREATE TABLE IF NOT EXISTS agent_logs (
 
 CREATE INDEX IF NOT EXISTS idx_logs_agent     ON agent_logs(agent);
 CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON agent_logs(timestamp DESC);
+
+-- ── AGENT VERSIONING ──────────────────────────────────────────────────────────
+-- Full config snapshot per version. is_active=1 marks the deployed version.
+-- bump_type: major (breaking personality/model change), minor (domain/feature add),
+--            patch (typo fix, minor wording).
+
+CREATE TABLE IF NOT EXISTS agent_versions (
+    id          TEXT PRIMARY KEY,
+    agent_id    TEXT NOT NULL,
+    version     TEXT NOT NULL,              -- semver: "1.0.0"
+    model       TEXT NOT NULL,
+    personality TEXT NOT NULL,
+    domains     TEXT NOT NULL DEFAULT '[]', -- JSON array
+    color       TEXT,
+    changelog   TEXT,                       -- human note on what changed
+    bump_type   TEXT DEFAULT 'minor' CHECK(bump_type IN ('major','minor','patch')),
+    is_active   INTEGER DEFAULT 0,
+    created_by  TEXT DEFAULT 'system',
+    created_at  TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_agentver_unique ON agent_versions(agent_id, version);
+CREATE INDEX IF NOT EXISTS idx_agentver_agent    ON agent_versions(agent_id);
+CREATE INDEX IF NOT EXISTS idx_agentver_active   ON agent_versions(agent_id, is_active);
