@@ -12,11 +12,11 @@ import json
 import os
 import time
 
-import anthropic
 from dotenv import load_dotenv
 
 from skills.browser import BROWSER_TOOLS, execute_browser_tool
 from skills.bbc_briefing import BBC_BRIEFING_TOOL, execute_bbc_tool
+from sdk_bridge.llm_client import get_llm_client
 
 load_dotenv()
 
@@ -65,7 +65,7 @@ class ResearchAgent:
     """Handles deep research and information gathering tasks."""
 
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        self.client = get_llm_client(MODEL)
 
     def receive(self, task: dict) -> dict:
         start       = time.monotonic()
@@ -82,12 +82,11 @@ class ResearchAgent:
 
         response = None
         for _ in range(_MAX_TOOL_ROUNDS):
-            response = self.client.messages.create(
-                model=MODEL,
-                max_tokens=4096,
+            response = self.client.create(
+                messages=messages,
                 system=SYSTEM_PROMPT,
                 tools=_TOOLS,
-                messages=messages,
+                max_tokens=4096,
             )
 
             if response.stop_reason != "tool_use":

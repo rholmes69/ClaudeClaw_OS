@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-import anthropic
+from sdk_bridge.llm_client import get_llm_client
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -372,7 +372,7 @@ class CICDAgent:
     """Manages Git repositories and GitHub operations for ClaudeClaw OS."""
 
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        self.client = get_llm_client(MODEL)
 
     def receive(self, task: dict) -> dict:
         start       = time.monotonic()
@@ -392,12 +392,11 @@ class CICDAgent:
 
         response = None
         for _ in range(_MAX_ROUNDS):
-            response = self.client.messages.create(
-                model=MODEL,
-                max_tokens=4096,
+            response = self.client.create(
+                messages=messages,
                 system=SYSTEM_PROMPT,
                 tools=CICD_TOOLS,
-                messages=messages,
+                max_tokens=4096,
             )
 
             if response.stop_reason != "tool_use":

@@ -104,6 +104,8 @@
     .agent-card.research{ border-color:rgba(244,114,182,.25); }
     .agent-card.finance::before { background:#06b6d4; }
     .agent-card.finance { border-color:rgba(6,182,212,.25); }
+    .agent-card.cicd::before { background:#f97316; }
+    .agent-card.cicd { border-color:rgba(249,115,22,.25); }
     .agent-avatar { width:60px; height:60px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.3rem; font-weight:700; color:#fff; margin-bottom:10px; overflow:hidden; flex-shrink:0; }
     .agent-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; display:block; }
     .main     .agent-avatar { background:linear-gradient(135deg,#1d4ed8,#3b82f6); }
@@ -112,7 +114,8 @@
     .ops      .agent-avatar { background:linear-gradient(135deg,#7e22ce,#a855f7); }
     .research .agent-avatar { background:linear-gradient(135deg,#be185d,#ec4899); }
     .finance  .agent-avatar { background:linear-gradient(135deg,#0e7490,#06b6d4); }
-    .agent-name { font-size:.85rem; font-weight:600; color:#fff; margin-bottom:3px; }
+    .agent-name { font-size:.85rem; font-weight:600; color:#fff; margin-bottom:2px; }
+    .agent-version { font-size:.6rem; font-weight:600; color:var(--muted); letter-spacing:.5px; margin-bottom:4px; opacity:.8; }
     .live-badge { display:inline-flex; align-items:center; gap:5px; font-size:.6rem; font-weight:600; color:var(--live); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
     .live-dot { width:5px; height:5px; border-radius:50%; background:var(--live); box-shadow:0 0 5px var(--live); animation:pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
@@ -348,6 +351,7 @@
         <div class="agent-card main">
           <div class="agent-avatar"><img src="/static/avatars/main.png" alt="M" onerror="this.parentNode.innerHTML='M'"></div>
           <div class="agent-name">Main</div>
+          <div class="agent-version" id="v-main">v—</div>
           <div class="live-badge"><span class="live-dot"></span> live</div>
           <div class="agent-role">Triage Manager</div>
           <div class="agent-turns" id="t-main">0 turns</div>
@@ -355,6 +359,7 @@
         <div class="agent-card comms">
           <div class="agent-avatar"><img src="/static/avatars/comms.png" alt="C" onerror="this.parentNode.innerHTML='C'"></div>
           <div class="agent-name">Comms</div>
+          <div class="agent-version" id="v-comms">v—</div>
           <div class="live-badge"><span class="live-dot"></span> live</div>
           <div class="agent-role">Scripts · Emails</div>
           <div class="agent-turns" id="t-comms">0 turns</div>
@@ -362,6 +367,7 @@
         <div class="agent-card content">
           <div class="agent-avatar"><img src="/static/avatars/content.png" alt="Ct" onerror="this.parentNode.innerHTML='Ct'"></div>
           <div class="agent-name">Content</div>
+          <div class="agent-version" id="v-content">v—</div>
           <div class="live-badge"><span class="live-dot"></span> live</div>
           <div class="agent-role">Trends · Video</div>
           <div class="agent-turns" id="t-content">0 turns</div>
@@ -369,6 +375,7 @@
         <div class="agent-card ops">
           <div class="agent-avatar"><img src="/static/avatars/ops.png" alt="O" onerror="this.parentNode.innerHTML='O'"></div>
           <div class="agent-name">Ops</div>
+          <div class="agent-version" id="v-ops">v—</div>
           <div class="live-badge"><span class="live-dot"></span> live</div>
           <div class="agent-role">Schedule · Projects</div>
           <div class="agent-turns" id="t-ops">0 turns</div>
@@ -376,6 +383,7 @@
         <div class="agent-card research">
           <div class="agent-avatar"><img src="/static/avatars/research.png" alt="R" onerror="this.parentNode.innerHTML='R'"></div>
           <div class="agent-name">Research</div>
+          <div class="agent-version" id="v-research">v—</div>
           <div class="live-badge"><span class="live-dot"></span> live</div>
           <div class="agent-role">Deep Search · Docs</div>
           <div class="agent-turns" id="t-research">0 turns</div>
@@ -383,9 +391,18 @@
         <div class="agent-card finance">
           <div class="agent-avatar"><img src="/static/avatars/finance.png" alt="A" onerror="this.parentNode.innerHTML='A'"></div>
           <div class="agent-name">Angela</div>
+          <div class="agent-version" id="v-finance">v—</div>
           <div class="live-badge"><span class="live-dot"></span> live</div>
           <div class="agent-role">AP · Finance</div>
           <div class="agent-turns" id="t-finance">0 turns</div>
+        </div>
+        <div class="agent-card cicd">
+          <div class="agent-avatar"><img src="/static/avatars/cicd.png" alt="CD" onerror="this.parentNode.innerHTML='CD'"></div>
+          <div class="agent-name">CI/CD</div>
+          <div class="agent-version" id="v-cicd">v—</div>
+          <div class="live-badge"><span class="live-dot"></span> live</div>
+          <div class="agent-role">Git · GitHub</div>
+          <div class="agent-turns" id="t-cicd">0 turns</div>
         </div>
       </div>
 
@@ -527,6 +544,14 @@
 
     <!-- ══ AGENTS ══ -->
     <div id="tab-agents" class="tab">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <span style="font-size:.75rem;color:var(--muted);">All registered agents in this instance</span>
+        <button class="mc-btn" onclick="openImportModal()"
+          style="padding:6px 14px;font-size:.72rem;background:var(--blue);color:#fff;border:none;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+          ↑ Import Agent
+        </button>
+      </div>
 
       <div id="agents-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:24px;"></div>
 
@@ -707,8 +732,9 @@
 
   // ── Overview ───────────────────────────────────────────────────────
   async function loadOverview() {
-    const r = await fetch('/api/status');
+    const [r, vr] = await Promise.all([fetch('/api/status'), fetch('/api/versions')]);
     const d = await r.json();
+    const versions = await vr.json();
     document.getElementById('s-messages').textContent  = (d.recent_logs||[]).length;
     document.getElementById('s-memories').textContent  = d.hive_mind.v2_memories || 0;
     document.getElementById('s-kv').textContent        = (d.hive_mind.facts||0)+(d.hive_mind.preferences||0)+(d.hive_mind.context||0);
@@ -716,8 +742,13 @@
     document.getElementById('s-tasks').textContent     = (d.scheduled_tasks||0);
     const counts = {};
     (d.recent_logs||[]).forEach(l => counts[l.agent]=(counts[l.agent]||0)+1);
-    [['main_agent','main'],['comms','comms'],['content','content'],['ops','ops'],['research','research']].forEach(([a,k])=>{
+    [['main_agent','main'],['comms','comms'],['content','content'],['ops','ops'],['research','research'],['cicd','cicd'],['finance','finance']].forEach(([a,k])=>{
       const el=document.getElementById('t-'+k); if(el) el.textContent=(counts[a]||0)+' turns';
+    });
+    // Populate version badges on overview cards
+    versions.forEach(v => {
+      const el = document.getElementById('v-' + v.agent_id);
+      if (el) el.textContent = 'v' + v.version;
     });
     renderOverviewLogs(d.recent_logs||[]);
     renderOverviewAudit(d.recent_audit||[]);
@@ -1067,18 +1098,25 @@
       const hasToken = a.has_token;
       const domains  = (a.domains||[]).join(', ') || '—';
       const model    = (a.model||'').replace('claude-','').replace('-4-6','');
+      const version  = a.version ? `v${a.version}` : 'v—';
       const avatarHtml = a.avatar
-        ? `<img src="${a.avatar}" alt="${a.name}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid ${color};margin-bottom:10px;display:block;">`
-        : `<div style="width:64px;height:64px;border-radius:50%;background:${color}22;border:2px solid ${color};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.4rem;color:${color};margin-bottom:10px;">${initial}</div>`;
+        ? `<img src="${a.avatar}" alt="${a.name}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid ${color};margin-bottom:8px;display:block;">`
+        : `<div style="width:64px;height:64px;border-radius:50%;background:${color}22;border:2px solid ${color};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.4rem;color:${color};margin-bottom:8px;">${initial}</div>`;
       return `<div style="background:var(--surface2);border:1px solid var(--border);border-top:3px solid ${color};border-radius:10px;padding:16px;text-align:center;">
         ${avatarHtml}
-        <div style="font-weight:600;font-size:.9rem;margin-bottom:3px;">${a.name||a.id}</div>
+        <div style="font-weight:600;font-size:.9rem;margin-bottom:2px;">${a.name||a.id}</div>
+        <div style="font-size:.6rem;font-weight:600;color:var(--muted);letter-spacing:.5px;margin-bottom:4px;opacity:.8;">${version}</div>
         <div style="display:flex;align-items:center;justify-content:center;gap:5px;margin-bottom:6px;">
           <span style="width:6px;height:6px;border-radius:50%;background:${hasToken?'var(--live)':'var(--muted)'}"></span>
           <span style="font-size:.65rem;color:${hasToken?'var(--live)':'var(--muted)'};">${hasToken?'bot connected':'no token'}</span>
         </div>
         <div style="font-size:.65rem;color:var(--muted);margin-bottom:4px;">${model}</div>
-        <div style="font-size:.65rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${domains}">${domains}</div>
+        <div style="font-size:.65rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:10px;" title="${domains}">${domains}</div>
+        <a href="/api/agents/${a.id}/export" download
+           style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;background:${color}18;border:1px solid ${color}44;color:${color};font-size:.65rem;font-weight:600;text-decoration:none;cursor:pointer;transition:background .15s;"
+           onmouseover="this.style.background='${color}33'" onmouseout="this.style.background='${color}18'">
+          ↓ Export
+        </a>
       </div>`;
     }).join('');
   }
@@ -1231,9 +1269,229 @@
   // ── Helpers ────────────────────────────────────────────────────────
   function tryParse(s) { try { return JSON.parse(s); } catch { return []; } }
 
+  // ── Import Agent Modal ─────────────────────────────────────────────
+  let _importFile = null;
+  let _importManifest = null;
+
+  function openImportModal() {
+    _importFile = null;
+    _importManifest = null;
+    document.getElementById('import-file-input').value = '';
+    document.getElementById('import-preview').classList.add('hidden');
+    document.getElementById('import-conflict').classList.add('hidden');
+    document.getElementById('import-status').textContent = '';
+    document.getElementById('import-status').className = '';
+    document.getElementById('import-overwrite').checked = false;
+    document.getElementById('import-submit').disabled = true;
+    document.getElementById('import-modal').classList.remove('hidden');
+  }
+
+  function closeImportModal() {
+    document.getElementById('import-modal').classList.add('hidden');
+  }
+
+  async function onImportFileChange(input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (!file.name.endsWith('.zip')) {
+      showImportStatus('Only .zip files are accepted.', 'error');
+      return;
+    }
+    _importFile = file;
+    document.getElementById('import-status').textContent = '';
+    document.getElementById('import-preview').classList.add('hidden');
+    document.getElementById('import-conflict').classList.add('hidden');
+    document.getElementById('import-submit').disabled = true;
+
+    // Read ZIP in browser to extract manifest.json for preview
+    try {
+      const buf = await file.arrayBuffer();
+      const manifest = await extractManifestFromZip(buf);
+      if (!manifest) {
+        showImportStatus('No manifest.json found in package.', 'error');
+        return;
+      }
+      _importManifest = manifest;
+      renderImportPreview(manifest);
+      // Check if agent already exists
+      const existing = await fetch('/api/agents/' + manifest.agent_id + '/versions').then(r => r.ok ? r.json() : null);
+      if (existing && existing.length > 0) {
+        document.getElementById('import-conflict-name').textContent = manifest.agent_id;
+        document.getElementById('import-conflict').classList.remove('hidden');
+      }
+      document.getElementById('import-submit').disabled = false;
+    } catch (e) {
+      showImportStatus('Could not read package: ' + e.message, 'error');
+    }
+  }
+
+  async function extractManifestFromZip(buf) {
+    // Minimal ZIP parser — reads central directory to find manifest.json
+    // Uses the JSZip-free approach: scan for local file headers (PK\x03\x04)
+    const u8 = new Uint8Array(buf);
+    const dec = new TextDecoder();
+    let i = 0;
+    while (i < u8.length - 4) {
+      if (u8[i]===0x50 && u8[i+1]===0x4b && u8[i+2]===0x03 && u8[i+3]===0x04) {
+        const fnLen   = u8[i+26] | (u8[i+27]<<8);
+        const extraLen = u8[i+28] | (u8[i+29]<<8);
+        const compSize = u8[i+18] | (u8[i+19]<<8) | (u8[i+20]<<16) | (u8[i+21]<<24);
+        const fname = dec.decode(u8.slice(i+30, i+30+fnLen));
+        const dataStart = i + 30 + fnLen + extraLen;
+        if (fname.endsWith('manifest.json') && compSize > 0) {
+          // Only supports stored (method=0) — Flask writes stored ZIPs
+          const method = u8[i+8] | (u8[i+9]<<8);
+          if (method === 0) {
+            const raw = dec.decode(u8.slice(dataStart, dataStart + compSize));
+            return JSON.parse(raw);
+          }
+        }
+        i = dataStart + compSize;
+      } else {
+        i++;
+      }
+    }
+    return null;
+  }
+
+  function renderImportPreview(m) {
+    document.getElementById('ip-name').textContent    = m.name || m.agent_id;
+    document.getElementById('ip-id').textContent      = m.agent_id;
+    document.getElementById('ip-version').textContent = m.active_version || '—';
+    document.getElementById('ip-model').textContent   = m.model || '—';
+    const domains = Array.isArray(m.domains) ? m.domains.join(', ') : (m.domains || '—');
+    document.getElementById('ip-domains').textContent = domains || '—';
+    document.getElementById('import-preview').classList.remove('hidden');
+  }
+
+  async function submitImport() {
+    if (!_importFile) return;
+    const overwrite = document.getElementById('import-overwrite').checked;
+    const fd = new FormData();
+    fd.append('file', _importFile);
+    if (overwrite) fd.append('overwrite', '1');
+
+    document.getElementById('import-submit').disabled = true;
+    showImportStatus('Importing…', 'info');
+
+    try {
+      const r = await fetch('/api/agents/import', { method: 'POST', body: fd });
+      const data = await r.json();
+      if (r.ok) {
+        showImportStatus('Imported ' + (data.agent_id || '') + ' v' + (data.version || '') + ' successfully.', 'success');
+        setTimeout(() => { closeImportModal(); loadAgents(); }, 1800);
+      } else if (r.status === 409) {
+        document.getElementById('import-conflict').classList.remove('hidden');
+        showImportStatus(data.error || 'Agent already exists. Enable overwrite to replace it.', 'error');
+        document.getElementById('import-submit').disabled = false;
+      } else {
+        showImportStatus(data.error || ('Import failed (' + r.status + ')'), 'error');
+        document.getElementById('import-submit').disabled = false;
+      }
+    } catch (e) {
+      showImportStatus('Network error: ' + e.message, 'error');
+      document.getElementById('import-submit').disabled = false;
+    }
+  }
+
+  function showImportStatus(msg, type) {
+    const el = document.getElementById('import-status');
+    el.textContent = msg;
+    el.className = 'import-status-' + type;
+  }
+
   // ── Init ───────────────────────────────────────────────────────────
   setInterval(loadOverview, 20000);
   loadOverview();
 </script>
+
+<!-- ══ Import Agent Modal ══ -->
+<div id="import-modal" class="hidden" style="
+  position:fixed;inset:0;z-index:1000;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(3px);"
+  onclick="if(event.target===this)closeImportModal()">
+
+  <div style="
+    background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    width:min(460px,92vw);padding:28px;position:relative;">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <span style="font-weight:600;font-size:.95rem;">Import Agent Package</span>
+      <button onclick="closeImportModal()" style="background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;line-height:1;">&times;</button>
+    </div>
+
+    <!-- Drop zone -->
+    <label id="import-dropzone" for="import-file-input" style="
+      display:block;border:2px dashed var(--border);border-radius:8px;
+      padding:32px 16px;text-align:center;cursor:pointer;
+      color:var(--muted);font-size:.8rem;margin-bottom:16px;
+      transition:border-color .15s;"
+      ondragover="event.preventDefault();this.style.borderColor='var(--blue)'"
+      ondragleave="this.style.borderColor='var(--border)'"
+      ondrop="event.preventDefault();this.style.borderColor='var(--border)';
+              document.getElementById('import-file-input').files=event.dataTransfer.files;
+              onImportFileChange(document.getElementById('import-file-input'))">
+      <div style="font-size:1.6rem;margin-bottom:8px;">&#128230;</div>
+      Drop a <strong>.zip</strong> agent package here, or click to browse
+      <input id="import-file-input" type="file" accept=".zip" style="display:none"
+             onchange="onImportFileChange(this)">
+    </label>
+
+    <!-- Manifest preview -->
+    <div id="import-preview" class="hidden" style="
+      background:var(--bg);border:1px solid var(--border);border-radius:8px;
+      padding:14px;margin-bottom:14px;font-size:.78rem;">
+      <div style="font-weight:600;margin-bottom:10px;color:var(--fg);">Package Contents</div>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="color:var(--muted);padding:3px 0;width:72px;">Name</td>    <td id="ip-name"    style="font-weight:500;"></td></tr>
+        <tr><td style="color:var(--muted);padding:3px 0;">ID</td>       <td id="ip-id"      style="font-family:monospace;"></td></tr>
+        <tr><td style="color:var(--muted);padding:3px 0;">Version</td>  <td id="ip-version" style="font-family:monospace;"></td></tr>
+        <tr><td style="color:var(--muted);padding:3px 0;">Model</td>    <td id="ip-model"   style="font-family:monospace;"></td></tr>
+        <tr><td style="color:var(--muted);padding:3px 0;vertical-align:top;">Domains</td>
+            <td id="ip-domains" style="color:var(--muted);font-size:.72rem;"></td></tr>
+      </table>
+    </div>
+
+    <!-- Conflict warning -->
+    <div id="import-conflict" class="hidden" style="
+      background:#7f1d1d22;border:1px solid #ef444444;border-radius:8px;
+      padding:12px 14px;margin-bottom:14px;font-size:.78rem;color:#fca5a5;">
+      <strong>Agent already exists:</strong> <span id="import-conflict-name"></span><br>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer;color:var(--fg);">
+        <input id="import-overwrite" type="checkbox">
+        Overwrite existing agent files and version
+      </label>
+    </div>
+
+    <!-- Status line -->
+    <div id="import-status" style="font-size:.75rem;min-height:18px;margin-bottom:14px;"></div>
+
+    <!-- Actions -->
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="closeImportModal()" style="
+        padding:7px 18px;font-size:.78rem;background:var(--surface);
+        border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--fg);">
+        Cancel
+      </button>
+      <button id="import-submit" onclick="submitImport()" disabled style="
+        padding:7px 18px;font-size:.78rem;background:var(--blue);
+        color:#fff;border:none;border-radius:6px;cursor:pointer;
+        opacity:.5;transition:opacity .15s;"
+        onmouseenter="if(!this.disabled)this.style.opacity='.85'"
+        onmouseleave="this.style.opacity=this.disabled?'.5':'1'">
+        Import
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .import-status-error   { color: #f87171; }
+  .import-status-success { color: #4ade80; }
+  .import-status-info    { color: var(--muted); }
+  #import-submit:not([disabled]) { opacity: 1; }
+</style>
 </body>
 </html>

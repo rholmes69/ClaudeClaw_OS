@@ -12,10 +12,10 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-import anthropic
 from dotenv import load_dotenv
 
 from hive_mind.db import HiveMindDB
+from sdk_bridge.llm_client import get_llm_client
 
 load_dotenv()
 
@@ -58,7 +58,7 @@ class OpsAgent:
     """Handles operations, scheduling, finance, and project scaffolding."""
 
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        self.client = get_llm_client(MODEL)
         self.hive = HiveMindDB()
 
     def receive(self, task: dict) -> dict:
@@ -90,14 +90,13 @@ class OpsAgent:
             }
         ]
 
-        response = self.client.messages.create(
-            model=MODEL,
-            max_tokens=2048,
-            system=SYSTEM_PROMPT,
+        response = self.client.create(
             messages=messages,
+            system=SYSTEM_PROMPT,
+            max_tokens=2048,
         )
 
-        raw = response.content[0].text
+        raw = next((b.text for b in response.content if b.type == "text"), "")
 
         cleaned = raw.strip()
         if cleaned.startswith("```"):
@@ -124,15 +123,14 @@ class OpsAgent:
         instruction = task.get("instruction", "")
 
         # Extract project name from instruction using Claude
-        extract_response = self.client.messages.create(
-            model=MODEL,
-            max_tokens=64,
+        extract_response = self.client.create(
+            messages=[{"role": "user", "content": instruction}],
             system="Extract only the project name from the user's instruction. "
                    "Return ONLY the sanitized name: lowercase, hyphens instead of spaces, "
                    "no special characters. Nothing else.",
-            messages=[{"role": "user", "content": instruction}],
+            max_tokens=64,
         )
-        raw_name = extract_response.content[0].text.strip().lower()
+        raw_name = next((b.text for b in extract_response.content if b.type == "text"), "project").strip().lower()
         sanitized = raw_name.replace(" ", "-").replace("_", "-")
         sanitized = "".join(c for c in sanitized if c.isalnum() or c == "-")
 

@@ -130,10 +130,26 @@ def main():
 
     # ── Step 5: Model ───────────────────────────────────────────────────────
     print("\nModel to use:")
-    print("  1. claude-sonnet-4-6 (default, fast, cost-effective)")
-    print("  2. claude-opus-4-6   (more capable, slower)")
+    print("  1. claude-sonnet-4-6      (default — Anthropic, fast, cost-effective)")
+    print("  2. claude-opus-4-7        (Anthropic, most capable)")
+    print("  3. claude-haiku-4-5-20251001 (Anthropic, fastest / cheapest)")
+    print("  4. ollama/llama3.2        (local, tool-capable)")
+    print("  5. ollama/qwen2.5         (local, tool-capable, strong structured output)")
+    print("  6. ollama/llama3.1        (local, tool-capable)")
+    print("  7. custom                 (enter your own model string)")
     model_choice = input("Choice [1]: ").strip()
-    model = "claude-opus-4-6" if model_choice == "2" else "claude-sonnet-4-6"
+    model_map = {
+        "1": "claude-sonnet-4-6",
+        "2": "claude-opus-4-7",
+        "3": "claude-haiku-4-5-20251001",
+        "4": "ollama/llama3.2",
+        "5": "ollama/qwen2.5",
+        "6": "ollama/llama3.1",
+    }
+    if model_choice == "7":
+        model = input("Enter model string (e.g. 'ollama/mistral-nemo'): ").strip()
+    else:
+        model = model_map.get(model_choice, "claude-sonnet-4-6")
 
     # ── Step 6: Domains ─────────────────────────────────────────────────────
     print("\nDomains this agent handles (comma-separated, e.g. 'invoices, expenses, payroll'):")

@@ -17,7 +17,10 @@ import time
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
-from flask import Flask, Response, jsonify, render_template, request, stream_with_context
+import io
+import zipfile
+
+from flask import Flask, Response, jsonify, render_template, request, send_file, stream_with_context
 from flask_socketio import SocketIO, emit
 
 from hive_mind.db import HiveMindDB
@@ -272,6 +275,292 @@ def api_agent_rollback(agent_id):
 def api_all_active_versions():
     hive = HiveMindDB()
     return jsonify(hive.get_all_active_versions())
+
+
+@app.route("/api/agents/import", methods=["POST"])
+def api_agent_import():
+    """
+    Import an agent package ZIP uploaded from the dashboard.
+
+    Accepts multipart/form-data with a 'package' file field.
+    Optional form field 'overwrite=true' allows replacing an existing agent.
+
+    Validates the ZIP, extracts files safely (no path traversal), writes
+    agent.yaml / CLAUDE.md / agent module / avatar into the right directories,
+    then snapshots the version in the Hive Mind.
+    """
+    from pathlib import Path
+    from sdk_bridge.orchestrator import get_agent_config, load_registry
+
+    if "package" not in request.files:
+        return jsonify({"error": "No file uploaded. Send a multipart field named 'package'."}), 400
+
+    f         = request.files["package"]
+    overwrite = request.form.get("overwrite", "false").lower() == "true"
+
+    if not f.filename or not f.filename.endswith(".zip"):
+        return jsonify({"error": "File must be a .zip package exported from ClaudeClaw OS."}), 400
+
+    agents_dir  = Path(__file__).parent.parent / "agents"
+    avatars_dir = Path(__file__).parent / "static" / "avatars"
+
+    try:
+        buf = io.BytesIO(f.read())
+        with zipfile.ZipFile(buf, "r") as zf:
+            names = zf.namelist()
+
+            # ── Locate the package root prefix ─────────────────────────────
+            # All files are under {agent_id}_agent_package/
+            prefix = ""
+            for name in names:
+                if name.endswith("agent.yaml"):
+                    prefix = name[: name.rfind("agent.yaml")]
+                    break
+
+            if not prefix:
+                return jsonify({"error": "Invalid package: agent.yaml not found in ZIP."}), 400
+
+            # ── Security: validate no path traversal ───────────────────────
+            for name in names:
+                resolved = (Path("/safe") / name).resolve()
+                if not str(resolved).startswith(str(Path("/safe").resolve())):
+                    return jsonify({"error": "Invalid package: path traversal detected."}), 400
+
+            # ── Read and validate manifest / agent.yaml ────────────────────
+            manifest = {}
+            manifest_name = f"{prefix}manifest.json"
+            if manifest_name in names:
+                manifest = json.loads(zf.read(manifest_name).decode("utf-8"))
+
+            yaml_bytes = zf.read(f"{prefix}agent.yaml").decode("utf-8")
+
+            # Parse agent ID from yaml (minimal parse — no pyyaml dependency)
+            agent_id = None
+            for line in yaml_bytes.splitlines():
+                if line.strip().startswith("id:"):
+                    agent_id = line.split(":", 1)[1].strip().strip('"\'')
+                    break
+
+            if not agent_id:
+                return jsonify({"error": "Cannot determine agent ID from agent.yaml."}), 400
+
+            import re as _re
+            if not _re.match(r'^[a-z][a-z0-9_-]{0,29}$', agent_id):
+                return jsonify({"error": f"Invalid agent ID '{agent_id}' in package."}), 400
+
+            # ── Check for existing agent ───────────────────────────────────
+            existing = get_agent_config(agent_id)
+            if existing and not overwrite:
+                return jsonify({
+                    "error":    f"Agent '{agent_id}' already exists.",
+                    "conflict": True,
+                    "agent_id": agent_id,
+                }), 409
+
+            # ── Extract files ──────────────────────────────────────────────
+            agent_dir = agents_dir / agent_id
+            agent_dir.mkdir(parents=True, exist_ok=True)
+
+            # agent.yaml
+            (agent_dir / "agent.yaml").write_text(yaml_bytes, encoding="utf-8")
+
+            # CLAUDE.md
+            claude_name = f"{prefix}CLAUDE.md"
+            if claude_name in names:
+                (agent_dir / "CLAUDE.md").write_bytes(zf.read(claude_name))
+
+            # Python module
+            module_name = f"{prefix}{agent_id}_agent.py"
+            if module_name in names:
+                (agents_dir / f"{agent_id}_agent.py").write_bytes(zf.read(module_name))
+
+            # Avatar — write to static/avatars preserving extension
+            for name in names:
+                tail = name[len(prefix):]
+                if tail.startswith("avatar.") and "." in tail:
+                    ext = tail.rsplit(".", 1)[-1].lower()
+                    if ext in ("png", "jpg", "jpeg", "webp"):
+                        (avatars_dir / f"{agent_id}.{ext}").write_bytes(zf.read(name))
+                        break
+
+            # ── Snapshot version in Hive Mind ──────────────────────────────
+            hive = HiveMindDB()
+
+            # Parse version and other fields from yaml minimally
+            version     = "1.0.0"
+            model       = "claude-sonnet-4-6"
+            personality = ""
+            domains     = []
+            color       = None
+            in_domains  = False
+            for line in yaml_bytes.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("version:"):
+                    version = stripped.split(":", 1)[1].strip().strip('"\'')
+                elif stripped.startswith("model:"):
+                    model = stripped.split(":", 1)[1].strip().strip('"\'')
+                elif stripped.startswith("personality:"):
+                    personality = stripped.split(":", 1)[1].strip().strip('"\'')
+                elif stripped.startswith("color:"):
+                    color = stripped.split(":", 1)[1].strip().strip('"\'')
+                elif stripped.startswith("domains:"):
+                    in_domains = True
+                elif in_domains and stripped.startswith("- "):
+                    domains.append(stripped[2:].strip())
+                elif in_domains and not stripped.startswith("-") and stripped:
+                    in_domains = False
+
+            # Use manifest version history if available
+            changelog = "Imported from package."
+            if manifest.get("version_history"):
+                active_snap = next(
+                    (v for v in manifest["version_history"] if v.get("is_active")),
+                    manifest["version_history"][0] if manifest["version_history"] else None,
+                )
+                if active_snap:
+                    version     = active_snap.get("version", version)
+                    changelog   = active_snap.get("changelog") or changelog
+                    model       = active_snap.get("model", model)
+
+            hive.snapshot_agent_version(
+                agent_id=agent_id,
+                version=version,
+                model=model,
+                personality=personality,
+                domains=domains,
+                color=color,
+                changelog=changelog,
+                bump_type="major",
+                created_by="import",
+            )
+
+            _push_event("agent_imported", {"agent_id": agent_id, "version": version})
+
+            return jsonify({
+                "ok":         True,
+                "agent_id":   agent_id,
+                "version":    version,
+                "name":       manifest.get("name", agent_id),
+                "overwritten": bool(existing),
+            }), 201
+
+    except zipfile.BadZipFile:
+        return jsonify({"error": "File is not a valid ZIP archive."}), 400
+    except Exception as ex:
+        return jsonify({"error": str(ex)}), 500
+
+
+@app.route("/api/agents/<agent_id>/export")
+def api_agent_export(agent_id):
+    """
+    Bundle an agent into a downloadable ZIP containing:
+      agent.yaml, CLAUDE.md, avatar image (if any),
+      agent Python module (if any), and a manifest.json
+      with full version history from the Hive Mind.
+    """
+    from pathlib import Path
+    from sdk_bridge.orchestrator import get_agent_config
+
+    cfg = get_agent_config(agent_id)
+    if not cfg:
+        return jsonify({"error": f"Agent '{agent_id}' not found."}), 404
+
+    hive        = HiveMindDB()
+    versions    = hive.list_agent_versions(agent_id)
+    active_ver  = hive.get_active_version(agent_id)
+    agents_dir  = Path(__file__).parent.parent / "agents"
+    agent_dir   = agents_dir / agent_id
+    avatars_dir = Path(__file__).parent / "static" / "avatars"
+
+    buf = io.BytesIO()
+    pkg = f"{agent_id}_agent_package"
+
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+
+        # agent.yaml
+        yaml_path = agent_dir / "agent.yaml"
+        if yaml_path.exists():
+            zf.write(yaml_path, f"{pkg}/agent.yaml")
+
+        # CLAUDE.md
+        claude_path = agent_dir / "CLAUDE.md"
+        if claude_path.exists():
+            zf.write(claude_path, f"{pkg}/CLAUDE.md")
+
+        # Agent Python module
+        module_path = agents_dir / f"{agent_id}_agent.py"
+        if module_path.exists():
+            zf.write(module_path, f"{pkg}/{agent_id}_agent.py")
+
+        # Avatar image — check all supported extensions
+        for ext in ("png", "jpg", "jpeg", "webp"):
+            avatar_path = avatars_dir / f"{agent_id}.{ext}"
+            if avatar_path.exists():
+                zf.write(avatar_path, f"{pkg}/avatar.{ext}")
+                break
+
+        # manifest.json — metadata + full version history
+        manifest = {
+            "agent_id":       agent_id,
+            "name":           cfg.get("name", agent_id),
+            "active_version": active_ver["version"] if active_ver else None,
+            "model":          cfg.get("model"),
+            "personality":    cfg.get("personality"),
+            "domains":        cfg.get("domains", []),
+            "color":          cfg.get("color"),
+            "exported_at":    datetime.now(timezone.utc).isoformat(),
+            "version_history": [
+                {
+                    "version":    v["version"],
+                    "bump_type":  v["bump_type"],
+                    "changelog":  v["changelog"],
+                    "model":      v["model"],
+                    "is_active":  bool(v["is_active"]),
+                    "created_at": v["created_at"],
+                    "created_by": v["created_by"],
+                }
+                for v in versions
+            ],
+        }
+        zf.writestr(f"{pkg}/manifest.json", json.dumps(manifest, indent=2))
+
+        # README.md — quick-start instructions inside the package
+        readme = f"""# {cfg.get('name', agent_id)} — Agent Package
+
+Exported from ClaudeClaw OS POLAR on {datetime.now(timezone.utc).strftime('%Y-%m-%d')}.
+
+## Active version
+{active_ver['version'] if active_ver else 'unknown'}
+
+## Contents
+| File | Purpose |
+|---|---|
+| `agent.yaml` | Agent configuration (id, model, personality, domains) |
+| `CLAUDE.md` | Agent system prompt |
+| `{agent_id}_agent.py` | Agent Python module (if included) |
+| `avatar.*` | Avatar image for the dashboard (if included) |
+| `manifest.json` | Full version history and export metadata |
+
+## Installing into a ClaudeClaw OS instance
+1. Copy `agent.yaml` and `CLAUDE.md` into `agents/{agent_id}/`
+2. Copy `{agent_id}_agent.py` into `agents/`
+3. Copy `avatar.*` into `dashboard/static/avatars/`
+4. Add the agent to `sdk_bridge/router.py` and `sdk_bridge/main_agent.py`
+5. Add the bot token env var to `.env`
+6. Run `python scripts/create_agent.py` or call `register_agent()` to snapshot v1.0.0
+
+See `docs/CREATE_AGENT.md` for full wiring instructions.
+"""
+        zf.writestr(f"{pkg}/README.md", readme)
+
+    buf.seek(0)
+    filename = f"{agent_id}_agent_package.zip"
+    return send_file(
+        buf,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=filename,
+    )
 
 
 @app.route("/api/hive")

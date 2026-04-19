@@ -10,10 +10,10 @@ import json
 import os
 import time
 
-import anthropic
 from dotenv import load_dotenv
 
 from skills.browser import BROWSER_TOOLS, execute_browser_tool
+from sdk_bridge.llm_client import get_llm_client
 
 load_dotenv()
 
@@ -64,7 +64,7 @@ class CommsAgent:
     """Handles all communication tasks, with browser automation capability."""
 
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        self.client = get_llm_client(MODEL)
 
     def receive(self, task: dict) -> dict:
         start       = time.monotonic()
@@ -81,12 +81,11 @@ class CommsAgent:
         # Tool execution loop
         response = None
         for _ in range(_MAX_TOOL_ROUNDS):
-            response = self.client.messages.create(
-                model=MODEL,
-                max_tokens=2048,
+            response = self.client.create(
+                messages=messages,
                 system=SYSTEM_PROMPT,
                 tools=BROWSER_TOOLS,
-                messages=messages,
+                max_tokens=2048,
             )
 
             if response.stop_reason != "tool_use":

@@ -8,8 +8,9 @@ import json
 import os
 import time
 
-import anthropic
 from dotenv import load_dotenv
+
+from sdk_bridge.llm_client import get_llm_client
 
 load_dotenv()
 
@@ -44,7 +45,7 @@ class FinanceAgent:
     """Handles accounts payable, expense tracking, and financial queries."""
 
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        self.client = get_llm_client(MODEL)
 
     def receive(self, task: dict) -> dict:
         start = time.monotonic()
@@ -58,14 +59,13 @@ class FinanceAgent:
             }
         ]
 
-        response = self.client.messages.create(
-            model=MODEL,
-            max_tokens=2048,
-            system=SYSTEM_PROMPT,
+        response = self.client.create(
             messages=messages,
+            system=SYSTEM_PROMPT,
+            max_tokens=2048,
         )
 
-        raw = response.content[0].text
+        raw = next((b.text for b in response.content if b.type == "text"), "")
 
         # Strip markdown code fences if Claude wrapped the JSON
         cleaned = raw.strip()

@@ -14,7 +14,6 @@ import os
 import time
 from typing import Optional
 
-import anthropic
 from dotenv import load_dotenv
 
 from hive_mind.db import HiveMindDB
@@ -22,6 +21,7 @@ from hive_mind.memory_controller import MemoryController
 from hive_mind.memory_ingest import evaluate_relevance, ingest_conversation
 from sdk_bridge.router import AgentRouter
 from sdk_bridge.orchestrator import parse_delegation, post_to_hive
+from sdk_bridge.llm_client import get_llm_client
 
 load_dotenv()
 
@@ -44,7 +44,7 @@ ROUTING_TOOL = {
                 "enum": ["comms", "content", "ops", "research", "finance", "cicd"],
                 "description": (
                     "comms: scriptwriting, emails, Telegram notifications, social media copy. "
-                    "content: trends, thumbnails, video outlines, content planning. "
+                    "content: trends, thumbnails, video outlines, content planning, Remotion video rendering. "
                     "ops: scheduling, hive mind updates, project scaffolding, system status. "
                     "research: deep web searches, technical documentation, competitive analysis. "
                     "finance: invoices, expenses, payroll, financial tracking, AP queries. "
@@ -72,7 +72,7 @@ class MainAgent:
     """POLAR Main Agent — Triage and delegation manager."""
 
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        self.client = get_llm_client(MODEL)
         self.hive = HiveMindDB()
         self.memory = MemoryController()
         self.router = AgentRouter()
@@ -226,13 +226,12 @@ class MainAgent:
 
     def _classify(self, instruction: str, system: str) -> Optional[dict]:
         """Call Claude with the routing tool to determine delegation target."""
-        response = self.client.messages.create(
-            model=MODEL,
-            max_tokens=512,
+        response = self.client.create(
+            messages=[{"role": "user", "content": instruction}],
             system=system,
             tools=[ROUTING_TOOL],
             tool_choice={"type": "tool", "name": "route_to_agent"},
-            messages=[{"role": "user", "content": instruction}],
+            max_tokens=512,
         )
 
         for block in response.content:
